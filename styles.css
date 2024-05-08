@@ -1,10 +1,11 @@
 /*Styles CSS*/
 
 body {
-    background-color: #fff;
-    color: #444;
+    background-color: #000000;
 }
 
-a {
-    color: #08f;
+footer {
+    text-align: center;
+    text-decoration: underline;
+    color: #1900ff;
 }

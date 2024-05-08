@@ -1,27 +1,72 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import WebGL from 'three/addons/capabilities/WebGL.js'
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { color } from 'three/examples/jsm/nodes/Nodes.js'
 
 const scene = new THREE.Scene()
-scene.background = null
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+scene.background = new THREE.Color(0xeeeeee) // Cambia el fondo a un color claro para ver las sombras
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
 
-const renderer = new THREE.WebGLRenderer({ alpha: true })
+const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
 
 const controls = new OrbitControls(camera, renderer.domElement)
 
-const geometry = new THREE.BoxGeometry(5, 5, 5)
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-const cube = new THREE.Mesh(geometry, material)
-scene.add(cube)
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 }) // Material Phong por defecto
 
-// Resaltar aristas
-const edges = new THREE.EdgesGeometry(geometry)
-const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff }))
-scene.add(line)
+function centerCameraOnShapes() {
+    // Calcular el centro de todas las formas geométricas
+    const boundingBox = new THREE.Box3().setFromObject(scene)
+    const center = boundingBox.getCenter(new THREE.Vector3())
+
+    // Establecer la posición de la cámara para que apunte hacia el centro
+    const distance =
+        Math.max(
+            boundingBox.max.x - boundingBox.min.x,
+            boundingBox.max.y - boundingBox.min.y,
+            boundingBox.max.z - boundingBox.min.z,
+        ) * 1.5 // Multiplicador para asegurar que todas las formas sean visibles
+    const direction = new THREE.Vector3(1, 1, 1).normalize()
+    const offset = direction.multiplyScalar(distance)
+    const newPosition = center.clone().add(offset)
+    camera.position.copy(newPosition)
+    camera.lookAt(center)
+}
+
+const esfera = new THREE.Mesh(new THREE.SphereGeometry(75, 20, 10), material)
+scene.add(esfera)
+
+const icosaedro = new THREE.Mesh(new THREE.IcosahedronGeometry(75, 1), material)
+scene.add(icosaedro)
+
+const octaedro = new THREE.Mesh(new THREE.OctahedronGeometry(75, 2), material)
+scene.add(octaedro)
+
+const tetraedro = new THREE.Mesh(new THREE.TetrahedronGeometry(75, 0), material)
+scene.add(tetraedro)
+
+const cubo = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material)
+scene.add(cubo)
+
+const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(20, 75, 100, 40, 5), material)
+scene.add(cilindro)
+
+const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff })
+
+function addEdges(mesh) {
+    const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry)
+    const lineSegments = new THREE.LineSegments(edgesGeometry, lineMaterial)
+    mesh.add(lineSegments)
+}
+
+addEdges(esfera)
+addEdges(icosaedro)
+addEdges(octaedro)
+addEdges(tetraedro)
+addEdges(cubo)
+addEdges(cilindro)
 
 camera.position.set(5, 5, 5)
 controls.update()
@@ -35,91 +80,99 @@ function animate() {
 function createPanel() {
     const panel = new GUI({ width: 310 })
 
-    const folder1 = panel.addFolder('Visibility')
-    const folder2 = panel.addFolder('Activation/Deactivation')
-    const folder3 = panel.addFolder('Pausing/Stepping')
-    const folder4 = panel.addFolder('Crossfading')
-    const folder5 = panel.addFolder('Blend Weights')
-    const folder6 = panel.addFolder('General Speed')
-
-    settings = {
-        'show model': true,
-        'show skeleton': false,
-        'deactivate all': deactivateAllActions,
-        'activate all': activateAllActions,
-        'pause/continue': pauseContinue,
-        'make single step': toSingleStepMode,
-        'modify step size': 0.05,
-        'from walk to idle': function () {
-            prepareCrossFade(walkAction, idleAction, 1.0)
-        },
-        'from idle to walk': function () {
-            prepareCrossFade(idleAction, walkAction, 0.5)
-        },
-        'from walk to run': function () {
-            prepareCrossFade(walkAction, runAction, 2.5)
-        },
-        'from run to walk': function () {
-            prepareCrossFade(runAction, walkAction, 5.0)
-        },
-        'use default duration': true,
-        'set custom duration': 3.5,
-        'modify idle weight': 0.0,
-        'modify walk weight': 1.0,
-        'modify run weight': 0.0,
-        'modify time scale': 1.0,
+    const polygonShapes = {
+        Esfera: 0,
+        Icosaedro: 1,
+        Octaedro: 2,
+        Tetraedro: 3,
+        Cubo: 4,
+        Cono: 5,
     }
 
-    folder1.add(settings, 'show model').onChange(showModel)
-    folder1.add(settings, 'show skeleton').onChange(showSkeleton)
+    const folder1 = panel.addFolder('Formas del Poligono')
+    const folder2 = panel.addFolder('Propiedades del Poligono')
 
-    folder2.add(settings, 'deactivate all')
-    folder2.add(settings, 'activate all')
+    const shapeControls = {}
+    const materialControls = {}
 
-    folder3.add(settings, 'pause/continue')
-    folder3.add(settings, 'make single step')
-    folder3.add(settings, 'modify step size', 0.01, 0.1, 0.001)
+    // Agregar un control deslizable para cada forma
+    for (const shape in polygonShapes) {
+        shapeControls[shape] = true // Por defecto, todas las formas están activadas
+        folder1.add(shapeControls, shape).onChange(() => toggleShape(shape, shapeControls[shape]))
+    }
 
-    crossFadeControls.push(folder4.add(settings, 'from walk to idle'))
-    crossFadeControls.push(folder4.add(settings, 'from idle to walk'))
-    crossFadeControls.push(folder4.add(settings, 'from walk to run'))
-    crossFadeControls.push(folder4.add(settings, 'from run to walk'))
-    folder4.add(settings, 'use default duration')
-    folder4.add(settings, 'set custom duration', 0, 10, 0.01)
-
-    folder5
-        .add(settings, 'modify idle weight', 0.0, 1.0, 0.01)
-        .listen()
-        .onChange(function (weight) {
-            setWeight(idleAction, weight)
+    // Agregar control para cambiar el color del material
+    materialControls.Color = material.color.getHex()
+    folder2.addColor(materialControls, 'Color').onChange(color => {
+        material.color.setHex(color)
+        scene.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.material.color.setHex(color)
+            }
         })
-    folder5
-        .add(settings, 'modify walk weight', 0.0, 1.0, 0.01)
-        .listen()
-        .onChange(function (weight) {
-            setWeight(walkAction, weight)
-        })
-    folder5
-        .add(settings, 'modify run weight', 0.0, 1.0, 0.01)
-        .listen()
-        .onChange(function (weight) {
-            setWeight(runAction, weight)
-        })
+    })
 
-    folder6.add(settings, 'modify time scale', 0.0, 1.5, 0.01).onChange(modifyTimeScale)
+    // Agregar control para cambiar el tamaño de todas las formas
+    folder2.add({ Tamaño: 1 }, 'Tamaño', 0.1, 2).onChange(size => {
+        scene.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.scale.set(size, size, size)
+            }
+        })
+    })
+
+    // Agregar un control deslizable para degradado de color
+    const gradientControl = { 'Degradado de Color': 0 }
+    folder2.add(gradientControl, 'Degradado de Color', -1, 1, 0.1).onChange(gradient => {
+        // Calculamos el color base
+        const baseColor = new THREE.Color(materialControls.Color)
+
+        // Calculamos el color modificado con base en el degradado
+        const modifiedColor = new THREE.Color().copy(baseColor).lerp(new THREE.Color(0xffffff), Math.abs(gradient))
+
+        // Aplicamos el nuevo color a todas las formas
+        material.color.copy(modifiedColor)
+        scene.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.material.color.copy(modifiedColor)
+            }
+        })
+    })
+
+    function toggleShape(shape, enabled) {
+        switch (shape) {
+            case 'Esfera':
+                esfera.visible = enabled
+                break
+            case 'Icosaedro':
+                icosaedro.visible = enabled
+                break
+            case 'Octaedro':
+                octaedro.visible = enabled
+                break
+            case 'Tetraedro':
+                tetraedro.visible = enabled
+                break
+            case 'Cubo':
+                cubo.visible = enabled
+                break
+            case 'Cono':
+                cilindro.visible = enabled
+                break
+            default:
+                break
+        }
+    }
 
     folder1.open()
     folder2.open()
-    folder3.open()
-    folder4.open()
-    folder5.open()
-    folder6.open()
 }
 
 if (WebGL.isWebGLAvailable()) {
-    // Initiate function or other initializations here
+    // Iniciar funciones o otras inicializaciones aquí
     animate()
     createPanel()
+    centerCameraOnShapes()
 } else {
     const warning = WebGL.getWebGLErrorMessage()
     document.getElementById('container').appendChild(warning)
