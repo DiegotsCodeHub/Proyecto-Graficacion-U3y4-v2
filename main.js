@@ -54,19 +54,6 @@ scene.add(cilindro)
 
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff })
 
-function addEdges(mesh) {
-    const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry)
-    const lineSegments = new THREE.LineSegments(edgesGeometry, lineMaterial)
-    mesh.add(lineSegments)
-}
-
-addEdges(esfera)
-addEdges(icosaedro)
-addEdges(octaedro)
-addEdges(tetraedro)
-addEdges(cubo)
-addEdges(cilindro)
-
 camera.position.set(5, 5, 5)
 controls.update()
 
@@ -76,9 +63,20 @@ function animate() {
     renderer.render(scene, camera)
 }
 
+function addEdges(mesh) {
+    const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry)
+    const lineSegments = new THREE.LineSegments(edgesGeometry, lineMaterial)
+    mesh.add(lineSegments)
+}
+
 function createPanel() {
     const panel = new GUI({ width: 310 })
 
+    const folder1 = panel.addFolder('Formas del Poligono')
+    const folder2 = panel.addFolder('Propiedades del Poligono')
+    const folder3 = panel.addFolder('Material y Textura')
+
+    const shapeControls = {}
     const polygonShapes = {
         Esfera: 0,
         Icosaedro: 1,
@@ -87,17 +85,41 @@ function createPanel() {
         Cubo: 4,
         Cono: 5,
     }
-
-    const folder1 = panel.addFolder('Formas del Poligono')
-    const folder2 = panel.addFolder('Propiedades del Poligono')
-
-    const shapeControls = {}
-    const materialControls = {}
+    const materialControls = {
+        Color: material.color.getHex(),
+        Opacity: material.opacity,
+        Wireframe: material.wireframe,
+    }
 
     // Agregar un control deslizable para cada forma
     for (const shape in polygonShapes) {
         shapeControls[shape] = true // Por defecto, todas las formas están activadas
         folder1.add(shapeControls, shape).onChange(() => toggleShape(shape, shapeControls[shape]))
+    }
+
+    function toggleShape(shape, enabled) {
+        switch (shape) {
+            case 'Esfera':
+                esfera.visible = enabled
+                break
+            case 'Icosaedro':
+                icosaedro.visible = enabled
+                break
+            case 'Octaedro':
+                octaedro.visible = enabled
+                break
+            case 'Tetraedro':
+                tetraedro.visible = enabled
+                break
+            case 'Cubo':
+                cubo.visible = enabled
+                break
+            case 'Cono':
+                cilindro.visible = enabled
+                break
+            default:
+                break
+        }
     }
 
     // Agregar control para cambiar el color del material
@@ -138,30 +160,27 @@ function createPanel() {
         })
     })
 
-    function toggleShape(shape, enabled) {
-        switch (shape) {
-            case 'Esfera':
-                esfera.visible = enabled
-                break
-            case 'Icosaedro':
-                icosaedro.visible = enabled
-                break
-            case 'Octaedro':
-                octaedro.visible = enabled
-                break
-            case 'Tetraedro':
-                tetraedro.visible = enabled
-                break
-            case 'Cubo':
-                cubo.visible = enabled
-                break
-            case 'Cono':
-                cilindro.visible = enabled
-                break
-            default:
-                break
-        }
-    }
+    folder3.add(materialControls, 'Wireframe').onChange(wireframe => {
+        material.wireframe = wireframe
+
+        addEdges(esfera)
+        addEdges(icosaedro)
+        addEdges(octaedro)
+        addEdges(tetraedro)
+        addEdges(cubo)
+        addEdges(cilindro)
+
+        // Recorremos todos los objetos de la escena y activamos/desactivamos los edges
+        scene.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.traverse(subChild => {
+                    if (subChild instanceof THREE.LineSegments) {
+                        subChild.visible = wireframe
+                    }
+                })
+            }
+        })
+    })
 
     folder1.open()
     folder2.open()
