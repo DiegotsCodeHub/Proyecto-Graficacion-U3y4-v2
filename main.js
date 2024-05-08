@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import WebGL from 'three/addons/capabilities/WebGL.js'
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { color } from 'three/examples/jsm/nodes/Nodes.js'
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0xeeeeee) // Cambia el fondo a un color claro para ver las sombras
