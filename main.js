@@ -4,16 +4,17 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(0xeeeeee) // Cambia el fondo a un color claro para ver las sombras
+scene.background = new THREE.Color(null)
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
 
-const renderer = new THREE.WebGLRenderer()
+const renderer = new THREE.WebGLRenderer({ alpha: true })
 renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.shadowMap.enabled = true
 document.body.appendChild(renderer.domElement)
 
 const controls = new OrbitControls(camera, renderer.domElement)
 
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 }) // Material Phong por defecto
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 }) // Material por defecto
 
 function centerCameraOnShapes() {
     // Calcular el centro de todas las formas geométricas
@@ -49,7 +50,7 @@ scene.add(tetraedro)
 const cubo = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100, 4, 4, 4), material)
 scene.add(cubo)
 
-const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(20, 75, 100, 40, 5), material)
+const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(0, 75, 120, 40, 5), material)
 scene.add(cilindro)
 
 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff })
@@ -77,6 +78,7 @@ function createPanel() {
     const folder3 = panel.addFolder('Material y Textura')
 
     const shapeControls = {}
+
     const polygonShapes = {
         Esfera: 0,
         Icosaedro: 1,
@@ -85,19 +87,38 @@ function createPanel() {
         Cubo: 4,
         Cono: 5,
     }
+
     const materialControls = {
         Color: material.color.getHex(),
         Opacity: material.opacity,
         Wireframe: material.wireframe,
+        LambertShading: false, // Agrega LambertShading al objeto materialControls
     }
+
+    // Inicializar todas las formas como no visibles
+    esfera.visible = false
+    icosaedro.visible = false
+    octaedro.visible = false
+    tetraedro.visible = false
+    cubo.visible = false
+    cilindro.visible = false
 
     // Agregar un control deslizable para cada forma
     for (const shape in polygonShapes) {
-        shapeControls[shape] = true // Por defecto, todas las formas están activadas
+        shapeControls[shape] = false // Por defecto, todas las formas están desactivadas
         folder1.add(shapeControls, shape).onChange(() => toggleShape(shape, shapeControls[shape]))
     }
 
     function toggleShape(shape, enabled) {
+        // Primero, hacer todas las formas no visibles
+        esfera.visible = false
+        icosaedro.visible = false
+        octaedro.visible = false
+        tetraedro.visible = false
+        cubo.visible = false
+        cilindro.visible = false
+
+        // Luego, hacer visible solo la forma seleccionada
         switch (shape) {
             case 'Esfera':
                 esfera.visible = enabled
@@ -182,8 +203,43 @@ function createPanel() {
         })
     })
 
+    const textureLoader = new THREE.TextureLoader()
+    const textureInputButton = document.createElement('button')
+    textureInputButton.textContent = 'Cargar Textura'
+    textureInputButton.addEventListener('click', () => {
+        const fileInput = document.createElement('input')
+        fileInput.type = 'file'
+        fileInput.accept = 'image/*'
+        fileInput.addEventListener('change', event => {
+            const file = event.target.files[0]
+            const reader = new FileReader()
+            reader.onload = function () {
+                const texture = textureLoader.load(reader.result, () => {
+                    material.map = texture
+                    material.needsUpdate = true
+                })
+            }
+            if (file) {
+                reader.readAsDataURL(file)
+            }
+        })
+        fileInput.click()
+    })
+
+    const resetButton = document.createElement('button')
+    resetButton.textContent = 'Reiniciar Polígono'
+    resetButton.addEventListener('click', () => {
+        // Quitar la textura del material del polígono
+        material.map = null
+        material.needsUpdate = true
+    })
+
+    folder3.domElement.appendChild(textureInputButton)
+    folder3.domElement.appendChild(resetButton)
+
     folder1.open()
     folder2.open()
+    folder3.open()
 }
 
 if (WebGL.isWebGLAvailable()) {
